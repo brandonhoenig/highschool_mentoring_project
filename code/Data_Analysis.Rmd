@@ -10,7 +10,44 @@ editor_options:
 ## Load necessary libraries
 ```{r}
 library(tidyverse)
+library(plotly)
 ```
+
+## Get acquainted with R Studio
+```{bash, echo = F}
+
+```
+
+## Introduction to 'directories'
+```{r}
+
+```
+
+## How does R work?
+```{bash, echo = F}
+Objects, Functions, and Arguments
+
+Objects are anything that can have something done to them. 
+  Think 'nouns'
+
+Functions are the things doing the doing. 
+  Think 'verbs'
+  
+Arguments are ways to modify what functions can do. 
+Think 'adverbs'
+```
+
+Making our first objects
+```{r}
+
+```
+
+Using our first functions
+```{r}
+
+```
+
+
 
 ## Read in data & make object. 
 ```{r}
@@ -18,10 +55,7 @@ bd_data <- # this line of code assigns a name to the line of code below.
   read_csv(fil = "output/bd_results_and_environmental_metadata.csv") 
 ```
 
-## Make a simple xy point plot comparing body_temp_c to bd_amount
 ```{r}
-ggplot(data = bd_data) +
-  geom_point(aes(x = body_temp_c, 
-                 y = bd_amount))
+
 ```
 
