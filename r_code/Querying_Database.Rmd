@@ -1,0 +1,149 @@
+---
+title: "Querying Data for Brianna Justiniano"
+author: "Brandon D. Hoenig"
+date: "2024-04-17"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Load Packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require(librarian)){
+  install.packages('librarian')
+  library(librarian)
+}
+
+shelf(tidyverse, 
+      RPostgres, 
+      DBI, 
+      dbplyr)
+```
+
+## Connect to the `ribbitr` database
+
+```{r}
+
+ribbitr_connection <-
+  dbConnect(drv = dbDriver("Postgres"), 
+            dbname = Sys.getenv('dbname'), 
+            host = Sys.getenv('host'), 
+            port = Sys.getenv('port'),
+            user = Sys.getenv('user'),
+            password = Sys.getenv('password'))
+
+```
+
+## Set `search_path` for `survey_data` schema
+```{r}
+
+search_path <-
+  "set search_path = 'survey_data';"
+
+dbExecute(conn = ribbitr_connection, 
+          statement = search_path)
+```
+
+
+## Save each table needed 
+```{r}
+location_table <-
+  tbl(src = ribbitr_connection, 
+      from = "location") %>%
+  collect() 
+
+region_table <-
+  tbl(src = ribbitr_connection, 
+      from = "region") %>%
+  collect()
+
+site_table <-
+  tbl(src = ribbitr_connection, 
+      from = "site") %>%
+  collect()
+  
+visit_table <-
+  tbl(src = ribbitr_connection, 
+      from = "visit") %>% 
+  collect()
+  
+survey_table <-
+  tbl(src = ribbitr_connection, 
+      from = "survey") %>%
+  collect()
+
+capture_table <-
+  tbl(src = ribbitr_connection, 
+      from = "capture") %>%
+  collect()
+
+qpcr_bd_results_table <-
+  tbl(src = ribbitr_connection, 
+      from = "qpcr_bd_results") %>%
+  collect()
+```
+
+## Munge data tables to get data we need. 
+```{r}
+munged_location_table <-
+  location_table %>%
+   filter(location == "usa")
+
+munged_region_table <-
+  region_table %>%
+    filter(region == 'pennsylvania')
+
+munged_site_table <-
+  site_table %>%
+    right_join(., munged_region_table, 
+               by = 'region_id')
+
+munged_visit_table <-
+  visit_table %>%
+    right_join(., munged_site_table, 
+               by = 'site_id')
+  
+munged_survey_table <-
+  survey_table %>% 
+    right_join(., munged_visit_table, 
+               by = 'visit_id')
+
+munged_capture_table <-
+  capture_table %>%
+    right_join(., munged_survey_table, 
+               by = 'survey_id') %>% 
+# this line of code is here as it appears that there is a single recore of rana muscosa (only lives in sierra nevadas) that has been replicated throughout the database as from Pennsylvania.  super strange, but not gonna deal with this now...   
+    drop_na(time_of_capture)
+
+munged_qpcr_bd_results_table <-
+  qpcr_bd_results_table %>%
+    right_join(., munged_capture_table, 
+               by = "bd_swab_id") %>%
+    drop_na(bd_swab_id) %>% 
+    filter(!str_detect(bd_swab_id, "-LA"))
+```
+
+## Pull together data into a few files for Brianna to work with. 
+```{r}
+#individual_results_table<-
+  munged_qpcr_bd_results_table %>%
+  select(species = species_capture, 
+         bd_status = detected, 
+         bd_amount = average_target_quant, 
+         time_of_capture, 
+         date_of_capture = date,
+         microhabitat_type, 
+         microhabitat_temp = substrate_temp_c, 
+         body_length_mm = svl_mm, 
+         body_mass_g, 
+         life_stage, 
+         sex, 
+         air_temp_c, 
+         water_temp_c, 
+         pH = p_h, 
+         total_dissolved_solids = tds_ppm) %>% 
+  write_csv('output/bd_results_and_environmental_metadata.csv')
+```
+
