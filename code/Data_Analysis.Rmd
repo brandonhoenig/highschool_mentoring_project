@@ -1,0 +1,27 @@
+---
+title: "Initial data analysis for high school project."
+author: "Brandon D. Hoenig"
+date: "2024-04-17"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Load necessary libraries
+```{r}
+library(tidyverse)
+```
+
+## Read in data & make object. 
+```{r}
+bd_data <- # this line of code assigns a name to the line of code below. 
+  read_csv(fil = "output/bd_results_and_environmental_metadata.csv") 
+```
+
+## Make a simple xy point plot comparing body_temp_c to bd_amount
+```{r}
+ggplot(data = bd_data) +
+  geom_point(aes(x = body_temp_c, 
+                 y = bd_amount))
+```
+
