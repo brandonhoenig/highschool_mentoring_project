@@ -47,19 +47,13 @@ Using our first functions
 
 ```
 
-
-## Read in data & make object. 
+Lets look at some data!
 ```{r}
-bd_data <- # this line of code assigns a name to the line of code below. 
-  read_csv(fil = "output/bd_results_and_environmental_metadata.csv") 
+
 ```
 
-## run a model to assess if body mass and length are correlated
 ```{r}
-qplot(data = bd_data, 
-      x = body_mass_g, 
-      y = body_length_mm, 
-      geom = 'point')
+
 ```
 
 
