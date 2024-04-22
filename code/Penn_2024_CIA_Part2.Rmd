@@ -1,0 +1,138 @@
+---
+title: "Querying RIBBiTR DB for qPCR Swas Info"
+author: "Brandon D. Hoenig"
+date: "2024-04-22"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+## Load Packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require(librarian)){
+  install.packages('librarian')
+  library(librarian)
+}
+
+shelf(tidyverse, 
+      RPostgres, 
+      DBI, 
+      dbplyr)
+```
+
+## Connect to the `ribbitr` database
+
+```{r}
+
+ribbitr_connection <-
+  dbConnect(drv = dbDriver("Postgres"), 
+            dbname = Sys.getenv('dbname'), 
+            host = Sys.getenv('host'), 
+            port = Sys.getenv('port'),
+            user = Sys.getenv('user'),
+            password = Sys.getenv('password'))
+
+```
+
+## Set `search_path` for `survey_data` schema
+```{r}
+
+search_path <-
+  "set search_path = 'survey_data';"
+
+dbExecute(conn = ribbitr_connection, 
+          statement = search_path)
+```
+
+
+## Save each table needed 
+```{r}
+location_table <-
+  tbl(src = ribbitr_connection, 
+      from = "location") %>%
+  collect() 
+
+region_table <-
+  tbl(src = ribbitr_connection, 
+      from = "region") %>%
+  collect()
+
+site_table <-
+  tbl(src = ribbitr_connection, 
+      from = "site") %>%
+  collect()
+  
+visit_table <-
+  tbl(src = ribbitr_connection, 
+      from = "visit") %>% 
+  collect()
+  
+survey_table <-
+  tbl(src = ribbitr_connection, 
+      from = "survey") %>%
+  collect()
+
+capture_table <-
+  tbl(src = ribbitr_connection, 
+      from = "capture") %>%
+  collect()
+
+qpcr_bd_results_table <-
+  tbl(src = ribbitr_connection, 
+      from = "qpcr_bd_results") %>%
+  collect()
+```
+
+## Munge data tables to get data we need. 
+```{r}
+munged_location_table <-
+  location_table 
+
+munged_region_table <-
+  region_table %>%
+    filter(region != 'california') %>%
+  right_join(munged_location_table, by = 'location_id')
+
+munged_site_table <-
+  site_table %>%
+    right_join(., munged_region_table, 
+               by = 'region_id')
+
+munged_visit_table <-
+  visit_table %>%
+    right_join(., munged_site_table, 
+               by = 'site_id') %>%
+  filter(year(date) > 2022) # this gets only data from 2023 and 2024
+  
+munged_survey_table <-
+  survey_table %>% 
+    right_join(., munged_visit_table, 
+               by = 'visit_id')
+
+munged_capture_table <-
+  capture_table %>%
+    right_join(., munged_survey_table, 
+               by = 'survey_id') %>% 
+# this line of code is here as it appears that there is a single recore of rana muscosa (only lives in sierra nevadas) that has been replicated throughout the database as from Pennsylvania.  super strange, but not gonna deal with this now...   
+    drop_na(time_of_capture)
+
+munged_qpcr_bd_results_table <-
+  qpcr_bd_results_table %>%
+    right_join(., munged_capture_table, 
+               by = "bd_swab_id") %>%
+    drop_na(bd_swab_id) %>% 
+    filter(!str_detect(bd_swab_id, "-LA"))
+```
+
+```{r}
+munged_qpcr_bd_results_table %>%
+  select(bd_swab_id:comments, 
+         site, 
+         region,
+         location) %>% 
+  write_csv("output/RIBBiTR_bd_swabs_from_2023_and_2024.csv")
+```
+
+
+
