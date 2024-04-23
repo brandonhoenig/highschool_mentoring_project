@@ -130,11 +130,11 @@ munged_qpcr_bd_results_table <-
 
 ## Get table to send to cori and miranda. 
 ```{r}
-munged_qpcr_bd_results_table %>%
+#munged_qpcr_bd_results_table %>%
   select(bd_swab_id:comments, 
          site, 
          region,
-         location) %>% 
+         location) %>% view()
   write_csv("output/RIBBiTR_bd_swabs_from_2023_and_2024.csv")
 ```
 
