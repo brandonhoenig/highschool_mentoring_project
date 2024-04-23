@@ -19,6 +19,9 @@ shelf(tidyverse,
       RPostgres, 
       DBI, 
       dbplyr)
+library(janitor)
+library(plotly)
+library(htmlwidgets)
 ```
 
 ## Connect to the `ribbitr` database
@@ -103,7 +106,7 @@ munged_visit_table <-
   visit_table %>%
     right_join(., munged_site_table, 
                by = 'site_id') %>%
-  filter(year(date) > 2022) # this gets only data from 2023 and 2024
+  filter(year(date) > 2021) # this gets only data from 2023 and 2024
   
 munged_survey_table <-
   survey_table %>% 
@@ -125,7 +128,7 @@ munged_qpcr_bd_results_table <-
     filter(!str_detect(bd_swab_id, "-LA"))
 ```
 
-Get table to send to cori and miranda. 
+## Get table to send to cori and miranda. 
 ```{r}
 munged_qpcr_bd_results_table %>%
   select(bd_swab_id:comments, 
@@ -135,11 +138,111 @@ munged_qpcr_bd_results_table %>%
   write_csv("output/RIBBiTR_bd_swabs_from_2023_and_2024.csv")
 ```
 
+## filter capture data to only get PA samples and anything from spring 2023 on. 
 ```{r}
 munged_capture_table %>%
   filter(region == 'pennsylvania') %>%
-  filter(date > "2023-03-01") %>% 
-  select(date, everything()) %>% view()
+  select(date, everything()) %>% 
+  select(date, 
+         species = species_capture, 
+         site)
 ```
 
+## Read in sample collection data from 2024 thus far (3 surveys.)
+```{r}
+processing_data_2024 <-
+  read_csv('data/a8b92d20-97fc-4920-99e3-16379506f3a8/6_penn_sampleprocessing_amphibian_capture_survey_collections.csv')
+
+pre_processing_data_2024 <-
+  read_csv('data/a8b92d20-97fc-4920-99e3-16379506f3a8/6_penn_sampleprocessing.csv')
+
+data_2024 <-
+  left_join(processing_data_2024, pre_processing_data_2024, by = "_record_id") %>%
+  select(date, 
+         species = species_capture, 
+         site = location)
+```
+
+```{r}
+data_2024 %>%
+  rbind(munged_capture_table %>%
+  filter(region == 'pennsylvania') %>%
+  select(date, everything()) %>% 
+  select(date, 
+         species = species_capture, 
+         site)) %>%
+  mutate(species = tolower(species)) %>%
+  mutate(site = tolower(site)) %>%
+  mutate(species = str_replace(species, "_", " ")) %>%
+  mutate(site = str_replace(site, "_", " ")) %>%
+  group_by(date, species, site) %>%
+  tally() %>%
+  mutate(date = as.Date(date, '%Y-%m-%d')) %>% 
+  filter(species != 'negative control')  %>%
+  arrange(site, date) %>% 
+  ungroup() %>%
+  pivot_wider(names_from = 'species', 
+              values_from = 'n') %>% 
+  mutate(month = month(date)) %>% 
+  mutate(year = year(date)) %>%
+  mutate_all(~replace(., is.na(.), 0)) %>%
+  mutate(season = if_else(month < 6, "spring", 
+                          if_else(month < 9, "summer", "fall"))) %>% 
+  select(-date, -month) %>%
+  group_by(year, season, site) %>%
+  summarise_all(sum) %>% 
+  write_csv('output/sampling-species-per-time-period-spring2023-present.csv')
+```
+
+```{r}
+data_2024 %>%
+  rbind(munged_capture_table %>%
+  filter(region == 'pennsylvania') %>%
+  select(date, everything()) %>% 
+  select(date, 
+         species = species_capture, 
+         site)) %>%
+  mutate(species = tolower(species)) %>%
+  mutate(site = tolower(site)) %>%
+  mutate(species = str_replace(species, "_", " ")) %>%
+  mutate(site = str_replace(site, "_", " ")) %>%
+  group_by(date, species, site) %>%
+  tally() %>%
+  mutate(date = as.Date(date, '%Y-%m-%d')) %>% 
+  filter(species != 'negative control')  %>%
+  arrange(site, date) %>% 
+  ungroup() %>%
+  pivot_wider(names_from = 'species', 
+              values_from = 'n') %>% 
+  mutate(month = month(date)) %>% 
+  mutate(year = year(date)) %>%
+  mutate_all(~replace(., is.na(.), 0)) %>%
+  mutate(season = if_else(month < 6, "spring", 
+                          if_else(month < 9, "summer", "fall"))) %>% 
+  select(-date) %>%
+  group_by(year, season, site) %>%
+  summarise_all(sum) %>%
+  clean_names() %>%
+  pivot_longer(cols = c(pseudacris_crucifer:eurycea_bislineata),
+               names_to = 'species', 
+               values_to = 'count') %>% 
+  ungroup() %>%
+  filter(species != 'unknown_species') %>%
+  mutate(species = str_replace(species, "bislan", "bislin")) %>%
+  filter(species != 'rana_catesbeiana_x_rana_clamitans_possibly') %>%
+  ggplot() +
+  geom_bar(aes(x = season, 
+                y = count, 
+               fill = species),
+           colour = 'black',
+           stat = 'identity') +
+  facet_wrap(~year) +
+  theme_bw()
+
+
+
+saveWidget(ggplotly(), file = "output/interactive_capture_plot_by_year_Penn.html")
+
+ggsave('output/interactive_capture_plot_by_year_Penn.tiff')
+```
 
