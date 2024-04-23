@@ -125,6 +125,7 @@ munged_qpcr_bd_results_table <-
     filter(!str_detect(bd_swab_id, "-LA"))
 ```
 
+Get table to send to cori and miranda. 
 ```{r}
 munged_qpcr_bd_results_table %>%
   select(bd_swab_id:comments, 
@@ -134,5 +135,11 @@ munged_qpcr_bd_results_table %>%
   write_csv("output/RIBBiTR_bd_swabs_from_2023_and_2024.csv")
 ```
 
+```{r}
+munged_capture_table %>%
+  filter(region == 'pennsylvania') %>%
+  filter(date > "2023-03-01") %>% 
+  select(date, everything()) %>% view()
+```
 
 
