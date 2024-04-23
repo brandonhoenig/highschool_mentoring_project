@@ -1,0 +1,4 @@
+_record_id,_title,_server_updated_at,_updated_by,_geometry,_latitude,_longitude,location,date,survey_time,processor,amphibian_capture_survey_collections,survey_comments
+eda1bd9a-3043-4e47-99d5-dc41f52a4df2,"April 13, 2024",2024-04-14 04:41:20 UTC,Cori Zawacki,SRID=4326;POINT(-80.42747430764409 41.6427838859114),41.6427838859,-80.4274743076,Admin Pond,2024-04-13,Night,Brandon Hoenig,13,
+0eae39b9-bce5-4f06-9295-f9d895eb4edd,"March 16, 2024",2024-03-17 03:20:41 UTC,Cori Zawacki,SRID=4326;POINT(-80.5125324311413 41.6912975626415),41.6912975626,-80.5125324311,Phelps Pond,2024-03-16,Night,Brandon Hoenig,13,Scale died after focal species surveyed
+86e4da30-7c9e-4a0c-abfd-906cff7f7308,"March 15, 2024",2024-03-16 04:01:39 UTC,Cori Zawacki,SRID=4326;POINT(-80.51251213106661 41.69111305446353),41.6911130545,-80.5125121311,Phelps Pond,2024-03-15,Night,Brandon Hoenig,5,
