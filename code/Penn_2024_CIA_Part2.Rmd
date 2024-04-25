@@ -27,7 +27,6 @@ library(htmlwidgets)
 ## Connect to the `ribbitr` database
 
 ```{r}
-
 ribbitr_connection <-
   dbConnect(drv = dbDriver("Postgres"), 
             dbname = Sys.getenv('dbname'), 
@@ -94,7 +93,7 @@ munged_location_table <-
 
 munged_region_table <-
   region_table %>%
-    filter(region != 'california') %>%
+    filter(region == 'pennsylvania') %>%
   right_join(munged_location_table, by = 'location_id')
 
 munged_site_table <-
@@ -244,5 +243,19 @@ data_2024 %>%
 saveWidget(ggplotly(), file = "output/interactive_capture_plot_by_year_Penn.html")
 
 ggsave('output/interactive_capture_plot_by_year_Penn.tiff')
+```
+
+## Determine the number of each sample type that was collected from PLE
+```{r}
+munged_capture_table %>% 
+  select(species_capture, date, bd_swab_id:antibody_id_4) %>%
+  drop_na(bd_swab_id) %>%
+  mutate(year = year(date)) %>% 
+  distinct() %>% 
+  pivot_longer(cols = bd_swab_id:antibody_id_4) %>%
+  select(-value, -date) %>%
+  group_by(species_capture, year, name) %>%
+  count() %>% view()
+  
 ```
 
