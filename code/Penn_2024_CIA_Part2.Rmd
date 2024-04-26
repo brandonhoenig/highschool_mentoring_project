@@ -228,14 +228,24 @@ data_2024 %>%
   ungroup() %>%
   filter(species != 'unknown_species') %>%
   mutate(species = str_replace(species, "bislan", "bislin")) %>%
-  filter(species != 'rana_catesbeiana_x_rana_clamitans_possibly') %>%
+  filter(species != 'rana_catesbeiana_x_rana_clamitans_possibly') %>% 
+  select(-site, -month) %>% 
+  group_by(year, season, species) %>%
+  summarise_all(sum) %>%
+  mutate(spec.type = if_else(species == 'rana_catesbeiana' |
+                               species == 'rana_pipiens' |
+                               species == 'rana_clamitans' |
+                               species == 'pseudacris_crucifer', "focal", "non-focal")) %>%
+  filter(species != 'rana_sp') %>%
   ggplot() +
   geom_bar(aes(x = season, 
                 y = count, 
-               fill = species),
+               fill = if_else(spec.type == 'focal', species, 'non-focal')),
            colour = 'black',
            stat = 'identity') +
+  scale_fill_manual(values = c("lightgrey", "#56B4E9", "#009E73", "#CC79A7", "#D55E00")) +
   facet_wrap(~year) +
+  labs(fill = "Amphbian Species") +
   theme_bw()
 
 
