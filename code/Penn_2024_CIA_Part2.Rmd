@@ -84,6 +84,11 @@ qpcr_bd_results_table <-
   tbl(src = ribbitr_connection, 
       from = "qpcr_bd_results") %>%
   collect()
+
+ves_table <-
+  tbl(src = ribbitr_connection, 
+      from = "ves") %>%
+  collect()
 ```
 
 ## Munge data tables to get data we need. 
@@ -125,6 +130,17 @@ munged_qpcr_bd_results_table <-
                by = "bd_swab_id") %>%
     drop_na(bd_swab_id) %>% 
     filter(!str_detect(bd_swab_id, "-LA"))
+
+
+munged_ves_table <-  
+  ves_table %>% 
+    left_join(munged_survey_table, by = 'survey_id') %>% 
+    select(species_ves, 
+           count, 
+           date, 
+           site, 
+           observer = observer.x) %>%
+    drop_na(site)
 ```
 
 ## Get table to send to cori and miranda. 
@@ -193,6 +209,7 @@ data_2024 %>%
   write_csv('output/sampling-species-per-time-period-spring2023-present.csv')
 ```
 
+## Determine the number of individiuals we captured at each site in each year and plot it. 
 ```{r}
 data_2024 %>%
   rbind(munged_capture_table %>%
@@ -232,6 +249,7 @@ data_2024 %>%
   select(-site, -month) %>% 
   group_by(year, season, species) %>%
   summarise_all(sum) %>%
+  mutate(season = factor(season, levels = c("spring", "summer", "fall"))) %>%
   mutate(spec.type = if_else(species == 'rana_catesbeiana' |
                                species == 'rana_pipiens' |
                                species == 'rana_clamitans' |
@@ -240,12 +258,12 @@ data_2024 %>%
   ggplot() +
   geom_bar(aes(x = season, 
                 y = count, 
-               fill = if_else(spec.type == 'focal', species, 'non-focal')),
+               fill = if_else(spec.type == 'focal', species, 'non_focal')),
            colour = 'black',
            stat = 'identity') +
   scale_fill_manual(values = c("lightgrey", "#56B4E9", "#009E73", "#CC79A7", "#D55E00")) +
   facet_wrap(~year) +
-  labs(fill = "Amphbian Species") +
+  labs(fill = "Captured Amphbian Species") +
   theme_bw()
 
 
@@ -259,13 +277,100 @@ ggsave('output/interactive_capture_plot_by_year_Penn.tiff')
 ```{r}
 munged_capture_table %>% 
   select(species_capture, date, bd_swab_id:antibody_id_4) %>%
-  drop_na(bd_swab_id) %>%
+  drop_na(bd_swab_id) %>% 
   mutate(year = year(date)) %>% 
   distinct() %>% 
-  pivot_longer(cols = bd_swab_id:antibody_id_4) %>%
-  select(-value, -date) %>%
+  mutate(across(contains("_id"), ~ if_else(is.na(.), 0, 1))) %>% # this little piece of code changes all na to 0 and all filled variables to 1 so that we can add them up later!
+  pivot_longer(cols = bd_swab_id:antibody_id_4, 
+               values_to = 'count') %>%
+  select(-date) %>% 
+  mutate(name = str_replace(name, "_[0-9]", "")) %>%
   group_by(species_capture, year, name) %>%
-  count() %>% view()
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(species = species_capture, 
+         everything()) %>%
+  filter(count > 0) %>% 
+  filter(species != 'unknown_species') %>%
+  mutate(species = str_replace(species, "bislan", "bislin")) %>%
+  filter(species != 'Rana_catesbeiana_x_Rana_clamitans_(possibly)') %>%
+  filter(species != 'Rana_sp') %>%
+  filter(species != 'Desmognathaus_sp.') %>%
+  mutate(spec.type = if_else(species == 'rana_catesbeiana' |
+                               species == 'rana_pipiens' |
+                               species == 'rana_clamitans' |
+                               species == 'pseudacris_crucifer', "focal", "non-focal")) %>%
+  filter(name != 'crispr_id') %>%
+  ggplot() +
+  geom_bar(aes(x = name, 
+               y = count, 
+               fill = if_else(spec.type == 'focal', species, 'non_focal')),
+           color = 'black',
+           stat = 'identity') +
+    facet_wrap(~year, 
+               ncol = 1) +
+  scale_fill_manual(values = c("lightgrey", "#56B4E9", "#009E73", "#CC79A7", "#D55E00")) +
+  labs(fill = "Processed Amphbian Species",
+       x = "Sample Type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45,
+                                   hjust = 1,
+                                   vjust = 1))
   
+
+saveWidget(ggplotly(), file = "output/interactive_process_plot_by_year_Penn.html")
+
+ggsave('output/interactive_process_plot_by_year_Penn.tiff')
+```
+
+
+```{r}
+munged_ves_table %>%
+  select(species = species_ves, 
+         everything()) %>%
+  group_by(date, species, site, observer) %>%
+  summarise_all(mean) %>%
+  mutate(date = as.Date(date, '%Y-%m-%d')) %>% 
+  arrange(site, date) %>% 
+  ungroup() %>%
+  pivot_wider(names_from = 'species', 
+              values_from = 'count') %>% 
+  mutate(month = month(date)) %>% 
+  mutate(year = year(date)) %>%
+  mutate_all(~replace(., is.na(.), 0)) %>%
+  mutate(season = if_else(month < 6, "spring", 
+                          if_else(month < 9, "summer", "fall"))) %>% 
+  select(-date, -observer, -month) %>%
+  group_by(year, season, site) %>%
+  summarise_all(sum) %>%
+  clean_names() %>% 
+  pivot_longer(cols = c(rana_catesbeiana:pseudacris_crucifer),
+               names_to = 'species', 
+               values_to = 'count') %>% 
+  ungroup() %>% 
+  filter(species != 'unknown') %>%
+  select(-site) %>% 
+  group_by(year, season, species) %>%
+  summarise_all(sum) %>%
+  mutate(season = factor(season, levels = c("spring", "summer", "fall"))) %>%
+  mutate(spec.type = if_else(species == 'rana_catesbeiana' |
+                               species == 'rana_pipiens' |
+                               species == 'rana_clamitans' |
+                               species == 'pseudacris_crucifer', "focal", "non-focal")) %>%
+  filter(species != 'rana_sp') %>%
+  ggplot() +
+  geom_bar(aes(x = season, 
+                y = count, 
+               fill = if_else(spec.type == 'focal', species, 'non_focal')),
+           colour = 'black',
+           stat = 'identity') +
+  scale_fill_manual(values = c("lightgrey", "#56B4E9", "#009E73", "#CC79A7", "#D55E00")) +
+  facet_wrap(~year) +
+  labs(fill = "Visually-encountered Amphbian Species") +
+  theme_bw()
+
+saveWidget(ggplotly(), file = "output/interactive_visual_plot_by_year_Penn.html")
+
+ggsave('output/interactive_visual_plot_by_year_Penn.tiff')
 ```
 
