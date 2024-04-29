@@ -374,3 +374,14 @@ saveWidget(ggplotly(), file = "output/interactive_visual_plot_by_year_Penn.html"
 ggsave('output/interactive_visual_plot_by_year_Penn.tiff')
 ```
 
+## Make sample sheet for Patrick Kearns (29 April 2024; see email)
+```{r}
+munged_capture_table %>%
+  select(date, everything()) %>%
+  arrange(date) %>%
+  filter(year(date) > 2022) %>%
+  select(date, bd_swab_id, species_capture, microbiome_swab_id, mucosome_id, bacterial_swab_id) %>%
+  drop_na(bd_swab_id) %>% 
+  write_csv('output/sample-sheet-for-umass-kearns-mcdonnell-29apr24.csv')
+```
+
