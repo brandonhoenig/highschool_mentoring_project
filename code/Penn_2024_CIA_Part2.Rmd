@@ -323,7 +323,7 @@ saveWidget(ggplotly(), file = "output/interactive_process_plot_by_year_Penn.html
 ggsave('output/interactive_process_plot_by_year_Penn.tiff')
 ```
 
-
+## make VES figure. 
 ```{r}
 munged_ves_table %>%
   select(species = species_ves, 
